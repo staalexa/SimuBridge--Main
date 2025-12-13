@@ -21,6 +21,7 @@ export function convertSimodOutput(configJsonString, bpmnXmlString) {
 
 function getstartingDate(jsonObj){
     //SIMOD 5.1.6 does not output date information in the JSON
+    //Parameter kept for consistency and potential future SIMOD versions that may include dates
     //Use a reasonable default date for simulation start
     return "01-01-2020";
 }
