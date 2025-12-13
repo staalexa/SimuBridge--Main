@@ -12,14 +12,21 @@ export function convertSimodOutput(configJsonString, bpmnXmlString) {
     //create Scenario Object, use default for name, starting date, no. process instances, and currency
     return SimulationModelModdle.getInstance().create('simulationmodel:Scenario', { 
         scenarioName : "Scenario 1", // TODO default name
+        startingDate : getstartingDate(jsonObj),
         startingTime : getstartingTime(jsonObj),
         resourceParameters : getResourceParameters(jsonObj),
         models : [getModel(jsonObj, bpmnXmlString)]
     });
 }
 
+function getstartingDate(jsonObj){
+    //SIMOD 5.1.6 does not output date information in the JSON
+    //Use a reasonable default date for simulation start
+    return "01-01-2020";
+}
+
 function getstartingTime(jsonObj){
-    //get the starting date from the arrival_time_calendar from Simod
+    //get the starting time from the arrival_time_calendar from Simod
     return jsonObj.arrival_time_calendar[0].beginTime.substring(0,5)
 }
 
