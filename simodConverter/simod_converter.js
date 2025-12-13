@@ -12,14 +12,22 @@ export function convertSimodOutput(configJsonString, bpmnXmlString) {
     //create Scenario Object, use default for name, starting date, no. process instances, and currency
     return SimulationModelModdle.getInstance().create('simulationmodel:Scenario', { 
         scenarioName : "Scenario 1", // TODO default name
+        startingDate : getstartingDate(jsonObj),
         startingTime : getstartingTime(jsonObj),
         resourceParameters : getResourceParameters(jsonObj),
         models : [getModel(jsonObj, bpmnXmlString)]
     });
 }
 
+function getstartingDate(jsonObj){
+    //SIMOD 5.1.6 does not output date information in the JSON
+    //Parameter kept for consistency and potential future SIMOD versions that may include dates
+    //Use a reasonable default date for simulation start
+    return "01-01-2020";
+}
+
 function getstartingTime(jsonObj){
-    //get the starting date from the arrival_time_calendar from Simod
+    //get the starting time from the arrival_time_calendar from Simod
     return jsonObj.arrival_time_calendar[0].beginTime.substring(0,5)
 }
 
@@ -30,6 +38,16 @@ function getTimeUnit(){
 
 function getCaseArrivalRate(jsonObj) {
     return makeDistribution(jsonObj.arrival_time_distribution);
+}
+
+function getDefaultEventDistribution() {
+    // SIMOD 5.1.6 may not provide distributions for intermediate catch events
+    // Return a default constant distribution of 0 seconds (immediate firing)
+    return SimulationModelModdle.getInstance().create('simulationmodel:TimeDistribution', {
+        distributionType: 'constant',
+        values: [{id: 'constantValue', value: 0}],
+        timeUnit: getTimeUnit()
+    });
 }
 
 function makeDistribution(simodDistribution){
@@ -179,10 +197,14 @@ function getEvents(bpmnObj, jsonObj) {
             id : b.ATTR.id,
             interArrivalTime: getCaseArrivalRate(jsonObj),
         })),
-        ... (element.intermediateCatchEvent || []).map(b => SimulationModelModdle.getInstance().create('simulationmodel:Event', {
-            id : b.ATTR.id,
-            interArrivalTime: makeDistribution(jsonObj.event_distribution.find(evtDist => evtDist.event_id === b.ATTR.id))
-        }))]
+        ... (element.intermediateCatchEvent || []).map(b => {
+            // SIMOD 5.1.6 may not output event_distribution for intermediate catch events
+            const eventDist = jsonObj.event_distribution?.find(evtDist => evtDist.event_id === b.ATTR.id);
+            return SimulationModelModdle.getInstance().create('simulationmodel:Event', {
+                id : b.ATTR.id,
+                interArrivalTime: eventDist ? makeDistribution(eventDist) : getDefaultEventDistribution()
+            });
+        })]
     );
 }
 
