@@ -40,6 +40,16 @@ function getCaseArrivalRate(jsonObj) {
     return makeDistribution(jsonObj.arrival_time_distribution);
 }
 
+function getDefaultEventDistribution() {
+    // SIMOD 5.1.6 may not provide distributions for intermediate catch events
+    // Return a default constant distribution of 0 seconds (immediate firing)
+    return SimulationModelModdle.getInstance().create('simulationmodel:TimeDistribution', {
+        distributionType: 'constant',
+        values: [{id: 'constantValue', value: 0}],
+        timeUnit: getTimeUnit()
+    });
+}
+
 function makeDistribution(simodDistribution){
 
     function createDistributionConfig (distributionType, ...values) {
@@ -187,10 +197,14 @@ function getEvents(bpmnObj, jsonObj) {
             id : b.ATTR.id,
             interArrivalTime: getCaseArrivalRate(jsonObj),
         })),
-        ... (element.intermediateCatchEvent || []).map(b => SimulationModelModdle.getInstance().create('simulationmodel:Event', {
-            id : b.ATTR.id,
-            interArrivalTime: makeDistribution(jsonObj.event_distribution.find(evtDist => evtDist.event_id === b.ATTR.id))
-        }))]
+        ... (element.intermediateCatchEvent || []).map(b => {
+            // SIMOD 5.1.6 may not output event_distribution for intermediate catch events
+            const eventDist = jsonObj.event_distribution?.find(evtDist => evtDist.event_id === b.ATTR.id);
+            return SimulationModelModdle.getInstance().create('simulationmodel:Event', {
+                id : b.ATTR.id,
+                interArrivalTime: eventDist ? makeDistribution(eventDist) : getDefaultEventDistribution()
+            });
+        })]
     );
 }
 
